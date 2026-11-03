@@ -2,7 +2,7 @@ package com.inci.campuscompanion.data
 
 import com.inci.campuscompanion.model.Task
 import kotlinx.coroutines.flow.Flow
-
+import kotlinx.coroutines.delay
 class TaskRepository(private val taskDao: TaskDao) {
     val allTasks: Flow<List<Task>> = taskDao.getTasks()
 
@@ -16,5 +16,9 @@ class TaskRepository(private val taskDao: TaskDao) {
 
     suspend fun deleteTask(task: Task) {
         taskDao.deleteTask(task)
+    }
+    suspend fun refreshEvents() {
+        // Placeholder refresh: simulates fetching new data
+        delay(1000)
     }
 }
