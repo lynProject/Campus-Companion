@@ -53,6 +53,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // Step 2: make sure the "Event updates" notification channel exists
+        EventNotifications.createChannel(applicationContext)
+
         val database = AppDatabase.getDatabase(applicationContext)
         val taskRepository = TaskRepository(database.taskDao())
         val preferencesRepository = UserPreferencesRepository(dataStore)
@@ -63,6 +66,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
+            val notificationsEnabled by viewModel.eventNotificationsEnabled.collectAsStateWithLifecycle()
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
@@ -70,6 +74,8 @@ class MainActivity : ComponentActivity() {
                     TaskScreen(
                         isDarkMode = isDarkMode,
                         onToggleDarkMode = { viewModel.toggleDarkMode(it) },
+                        notificationsEnabled = notificationsEnabled,
+                        onToggleNotifications = { viewModel.setEventNotificationsEnabled(it) },
                         tasks = tasks,
                         onToggleTask = { viewModel.toggleTaskCompletion(it) },
                         onAddTask = { title, description -> viewModel.upsertTask(title, description) },
@@ -85,6 +91,8 @@ class MainActivity : ComponentActivity() {
 fun TaskScreen(
     isDarkMode: Boolean,
     onToggleDarkMode: (Boolean) -> Unit,
+    notificationsEnabled: Boolean,
+    onToggleNotifications: (Boolean) -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
@@ -108,6 +116,24 @@ fun TaskScreen(
                 Switch(
                     checked = isDarkMode,
                     onCheckedChange = onToggleDarkMode
+                )
+            }
+
+            // Step 3: notification preference toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Event update notifications",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Switch(
+                    checked = notificationsEnabled,
+                    onCheckedChange = onToggleNotifications
                 )
             }
 
@@ -265,6 +291,8 @@ fun TaskPreview() {
         TaskScreen(
             isDarkMode = false,
             onToggleDarkMode = {},
+            notificationsEnabled = true,
+            onToggleNotifications = {},
             tasks = listOf(
                 Task(1, "Task 1", "Description 1", false),
                 Task(2, "Task 2", "Description 2", true)
