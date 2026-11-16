@@ -131,6 +131,22 @@ class MainActivity : ComponentActivity() {
                         onToggleDarkMode = { viewModel.toggleDarkMode(it) },
                         notificationsEnabled = notificationsEnabled,
                         onToggleNotifications = onToggleNotifications,
+                        onSendTestNotification = {
+                            // Step 5: one test notification
+                            val shown = EventNotifications.showEventUpdate(
+                                context = context,
+                                title = "Career Fair moved",
+                                text = "Now in the Main Hall at 2:00 PM. Tap to open Campus Companion.",
+                                notificationId = EventNotifications.TEST_NOTIFICATION_ID
+                            )
+                            if (!shown) {
+                                Toast.makeText(
+                                    context,
+                                    "Notifications are blocked. Turn them on first.",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
                         tasks = tasks,
                         onToggleTask = { viewModel.toggleTaskCompletion(it) },
                         onAddTask = { title, description -> viewModel.upsertTask(title, description) },
@@ -148,6 +164,7 @@ fun TaskScreen(
     onToggleDarkMode: (Boolean) -> Unit,
     notificationsEnabled: Boolean,
     onToggleNotifications: (Boolean) -> Unit,
+    onSendTestNotification: () -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
@@ -190,6 +207,16 @@ fun TaskScreen(
                     checked = notificationsEnabled,
                     onCheckedChange = onToggleNotifications
                 )
+            }
+
+            // Step 5: button to send one test notification (only when the toggle is ON)
+            if (notificationsEnabled) {
+                TextButton(
+                    onClick = onSendTestNotification,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                ) {
+                    Text("Send test notification")
+                }
             }
 
             HorizontalDivider()
@@ -348,6 +375,7 @@ fun TaskPreview() {
             onToggleDarkMode = {},
             notificationsEnabled = true,
             onToggleNotifications = {},
+            onSendTestNotification = {},
             tasks = listOf(
                 Task(1, "Task 1", "Description 1", false),
                 Task(2, "Task 2", "Description 2", true)
