@@ -50,6 +50,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.TaskRepository
 import com.inci.campuscompanion.data.UserPreferencesRepository
@@ -147,6 +149,12 @@ class MainActivity : ComponentActivity() {
                                 ).show()
                             }
                         },
+                        onRunEventRefresh = {
+                            // Step 6: run the background refresh once, right now
+                            WorkManager.getInstance(context)
+                                .enqueue(OneTimeWorkRequestBuilder<RefreshEventsWorker>().build())
+                            Toast.makeText(context, "Checking for event updates…", Toast.LENGTH_SHORT).show()
+                        },
                         tasks = tasks,
                         onToggleTask = { viewModel.toggleTaskCompletion(it) },
                         onAddTask = { title, description -> viewModel.upsertTask(title, description) },
@@ -165,6 +173,7 @@ fun TaskScreen(
     notificationsEnabled: Boolean,
     onToggleNotifications: (Boolean) -> Unit,
     onSendTestNotification: () -> Unit,
+    onRunEventRefresh: () -> Unit,
     tasks: List<Task>,
     onToggleTask: (Task) -> Unit,
     onAddTask: (String, String) -> Unit,
@@ -217,6 +226,15 @@ fun TaskScreen(
                 ) {
                     Text("Send test notification")
                 }
+            }
+
+            // Step 6: trigger the RefreshEventsWorker to test real "changed events" notifications.
+            // Visible even when the toggle is OFF, so you can check that nothing is sent then.
+            TextButton(
+                onClick = onRunEventRefresh,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            ) {
+                Text("Check for event updates now")
             }
 
             HorizontalDivider()
@@ -376,6 +394,7 @@ fun TaskPreview() {
             notificationsEnabled = true,
             onToggleNotifications = {},
             onSendTestNotification = {},
+            onRunEventRefresh = {},
             tasks = listOf(
                 Task(1, "Task 1", "Description 1", false),
                 Task(2, "Task 2", "Description 2", true)
