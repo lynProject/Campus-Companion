@@ -1,8 +1,14 @@
 package com.inci.campuscompanion
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
@@ -36,9 +42,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.inci.campuscompanion.data.AppDatabase
 import com.inci.campuscompanion.data.TaskRepository
@@ -67,6 +77,51 @@ class MainActivity : ComponentActivity() {
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
             val notificationsEnabled by viewModel.eventNotificationsEnabled.collectAsStateWithLifecycle()
+            val context = LocalContext.current
+
+            // Step 4: the system permission dialog. Its answer decides the toggle.
+            val notificationPermissionLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                viewModel.setEventNotificationsEnabled(granted)
+                if (!granted) {
+                    Toast.makeText(
+                        context,
+                        "Notifications are blocked. You can allow them in Settings.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+
+            // Step 4: every time the app comes to the front, make the toggle match reality.
+            // If the user blocked notifications in system Settings, show the toggle as OFF.
+            LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+                val blocked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+                if (blocked) {
+                    viewModel.setEventNotificationsEnabled(false)
+                }
+            }
+
+            // Step 4: ask only when the user turns the toggle ON (contextual),
+            // only on Android 13+ (API 33), and only if not already granted.
+            val onToggleNotifications: (Boolean) -> Unit = { enabled ->
+                val needsPermission = enabled &&
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS
+                    ) != PackageManager.PERMISSION_GRANTED
+
+                if (needsPermission) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    viewModel.setEventNotificationsEnabled(enabled)
+                }
+            }
             val tasks by viewModel.tasks.collectAsStateWithLifecycle()
 
             CampusCompanionTheme(darkTheme = isDarkMode) {
@@ -75,7 +130,7 @@ class MainActivity : ComponentActivity() {
                         isDarkMode = isDarkMode,
                         onToggleDarkMode = { viewModel.toggleDarkMode(it) },
                         notificationsEnabled = notificationsEnabled,
-                        onToggleNotifications = { viewModel.setEventNotificationsEnabled(it) },
+                        onToggleNotifications = onToggleNotifications,
                         tasks = tasks,
                         onToggleTask = { viewModel.toggleTaskCompletion(it) },
                         onAddTask = { title, description -> viewModel.upsertTask(title, description) },
